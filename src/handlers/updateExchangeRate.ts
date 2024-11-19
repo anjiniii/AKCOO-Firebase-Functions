@@ -1,24 +1,27 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { onRequest } from "firebase-functions/https";
 import { sendErrorResponse, sendSuccessResponse } from "../utils/responseUtil";
-
-interface CountryParameterDTO {
-  id: string;
-  exchangeRate: number;
-}
+import { UpdateExchangeRateBodyDTO } from "../dto/UpdateExchangeRateBodyDTO";
 
 // Firestore에 데이터를 추가하는 HTTP 트리거 함수
 export const updateExchangeRateHandler = onRequest(async (req, res) => {
   try {
-    // 쿼리 파라미터에서 "text" 값을 가져옵니다.
-    const { docID, exchangeRate } = req.query;
+    // 요청 메서드 검증
+    if (req.method !== "POST") {
+      sendErrorResponse(res, 405, "Only POST requests are allowed.");
+      return;
+    }
 
-    // "text" 파라미터가 없는 경우 오류 반환
-    if (!docID || !exchangeRate) {
+    // 요청 본문 검증
+    const body: UpdateExchangeRateBodyDTO = req.body;
+    const { countryId, exchangeRate } = body;
+
+    // body가 없는 경우 오류 반환
+    if (!countryId || !exchangeRate) {
       sendErrorResponse(
         res,
         400,
-        "Both 'docID' and 'exchangeRate' query parameters are required."
+        "Both body contents - 'countryId' and 'exchangeRate' - are required."
       );
       return;
     }
@@ -26,17 +29,10 @@ export const updateExchangeRateHandler = onRequest(async (req, res) => {
     // Firebase Admin SDK를 사용하여 Firestore에 데이터 추가
     const updateResult = await getFirestore()
       .collection("countries")
-      .doc(docID as string)
+      .doc(countryId as string)
       .update({
-        exchangeRate: parseFloat(exchangeRate as string),
+        exchangeRate: exchangeRate,
       });
-
-    const exchangeRateValue = parseFloat(exchangeRate as string);
-
-    const data: CountryParameterDTO = {
-      id: docID as string,
-      exchangeRate: exchangeRateValue,
-    };
 
     // 성공 메시지 반환
     sendSuccessResponse(
@@ -44,7 +40,7 @@ export const updateExchangeRateHandler = onRequest(async (req, res) => {
       200,
       `${updateResult.writeTime.toDate().toISOString()}`,
       "성공적으로 요청을 완료했습니다.",
-      data
+      body
     );
   } catch (error) {
     sendErrorResponse(

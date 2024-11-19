@@ -1,35 +1,7 @@
 import { onRequest } from "firebase-functions/https";
 import { sendErrorResponse, sendSuccessResponse } from "../utils/responseUtil";
 import { getFirestore } from "firebase-admin/firestore";
-
-// 숙박, 식당, 카페 각각의 세부 항목 정의
-export interface AccommodationDTO {
-  guesthouse: number;
-  "3Star": number;
-  "4Star": number;
-}
-
-export interface RestaurantDTO {
-  local: number;
-  casualDining?: number;
-}
-
-export interface CafeDTO {
-  local: number;
-  starbucks: number;
-}
-
-// prices 전체 구조 정의
-export interface PricesDTO {
-  accommodation: AccommodationDTO;
-  restaurant: RestaurantDTO;
-  cafe: CafeDTO;
-}
-
-export interface CountryPricesUpdateBodyDTO {
-  countryId: string;
-  prices: PricesDTO;
-}
+import { UpdateCountryPricesBodyDTO } from "../dto/UpdateCountryPricesBodyDTO";
 
 // Firestore에 데이터를 추가하는 HTTP 트리거 함수
 export const updateCountryPriceHandler = onRequest(async (req, res) => {
@@ -41,7 +13,7 @@ export const updateCountryPriceHandler = onRequest(async (req, res) => {
     }
 
     // 요청 본문 검증
-    const body: CountryPricesUpdateBodyDTO = req.body;
+    const body: UpdateCountryPricesBodyDTO = req.body;
     const { countryId, prices } = body;
 
     // "text" 파라미터가 없는 경우 오류 반환

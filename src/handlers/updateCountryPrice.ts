@@ -14,14 +14,13 @@ export const updateCountryPriceHandler = onRequest(async (req, res) => {
 
     // 요청 본문 검증
     const body: UpdateCountryPricesBodyDTO = req.body;
-    const { countryId, prices } = body;
+    const { countryID, prices } = body;
 
-    // "text" 파라미터가 없는 경우 오류 반환
-    if (!countryId || !prices) {
+    if (!countryID || !Array.isArray(prices) || prices.length === 0) {
       sendErrorResponse(
         res,
         400,
-        "Both body contents - 'countryId' and 'prices' - are required."
+        "Body must contain 'countryID' and a non-empty 'prices' array."
       );
       return;
     }
@@ -29,18 +28,34 @@ export const updateCountryPriceHandler = onRequest(async (req, res) => {
     // prices 위치
     const pricesRef = getFirestore()
       .collection("countries")
-      .doc(countryId as string)
+      .doc(countryID as string)
       .collection("prices");
 
-    // Firebase Admin SDK를 사용하여 Firestore에 데이터 추가
-    // 각 카테고리와 세부 항목 업데이트
-    for (const [category, priceData] of Object.entries(prices)) {
-      for (const [field, value] of Object.entries(priceData as object)) {
-        await pricesRef.doc(category).update({
-          [field]: value,
+    // Batch 쓰기 시작
+    const batch = getFirestore().batch();
+
+    for (const priceDetail of prices) {
+      // 쿼리로 해당 문서를 찾기
+      const querySnapshot = await pricesRef
+        .where("category", "==", priceDetail.category)
+        .where("item", "==", priceDetail.item)
+        .get();
+
+      if (querySnapshot.empty) {
+        // 문서가 없으면 새로 생성
+        const docRef = pricesRef.doc();
+        batch.set(docRef, priceDetail);
+      } else {
+        // 문서가 있으면 해당 문서 업데이트
+        querySnapshot.forEach((doc) => {
+          const docRef = pricesRef.doc(doc.id);
+          batch.update(docRef, { price: priceDetail.price });
         });
       }
     }
+
+    // Batch 커밋
+    await batch.commit();
 
     // 성공 메시지 반환
     sendSuccessResponse(
